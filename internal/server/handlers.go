@@ -16,6 +16,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	fmt.Println("client connected")
+
 	// Request channel
 	var requests chan []byte = make(chan []byte, 1)
 	go func() {
@@ -45,14 +47,14 @@ outerloop:
 				break outerloop
 			}
 			conn.WriteMessage(websocket.TextMessage, []byte(message))
-			fmt.Println("message sent to client")
+			fmt.Println("message sent to clients")
 			break
 		case request, ok := <-requests:
 			if !ok {
 				break outerloop
 			}
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("ok"))
+			fmt.Println("message recieved from clients")
+			conn.WriteMessage(websocket.TextMessage, []byte("ok"))
 			s.listener.SendMessage(string(request))
 			break
 		}

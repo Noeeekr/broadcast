@@ -107,9 +107,11 @@ func (s *Server) Serve(port int) ipc.DetailedErrors {
 }
 
 func (s *Server) Broadcast() {
-	message := <-s.messages
+	for {
+		message := <-s.messages
 
-	for _, messageChannel := range s.channels {
-		messageChannel.cha <- message
+		for _, messageChannel := range s.channels {
+			messageChannel.cha <- message
+		}
 	}
 }

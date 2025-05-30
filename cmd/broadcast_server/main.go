@@ -20,7 +20,7 @@ func main() {
 	var enableDebug bool
 
 	flag.IntVar(&port, "port", 3332, "Defines the port the server will be listening to")
-	flag.BoolVar(&enableDebug, "debug", false, "Defines if not implemented features will panic.")
+	flag.BoolVar(&enableDebug, "debug", true, "Defines if not implemented features will panic.")
 	flag.Parse()
 
 	// Enable production panic for unimplemented features
