@@ -12,6 +12,9 @@ import (
 type Client struct {
 	instance.Logger
 
+	// Necessary to check which broadcasted messages are from itself so it won't show in terminal, messages are removed after that
+	MessageHistory []string
+
 	// Contains messages recieved from Client.Connect()
 	MessagesRcvd   chan string
 	MessagesToSend chan string
@@ -24,6 +27,7 @@ type Client struct {
 // Client estabilishes a connection to broadcast server to send messages (to broadcast to all servers) and recieve broadcasted messages
 func New(url string, port int) Client {
 	return Client{
+		MessageHistory: []string{},
 		Logger:         *instance.NewLogger(),
 		MessagesRcvd:   make(chan string, 10),
 		MessagesToSend: make(chan string, 10),

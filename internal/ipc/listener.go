@@ -15,13 +15,13 @@ type DetailedErrors struct {
 // Listens for messages sent from Sender.
 type Listener struct {
 	// A channel to hold recieved messages
-	messages chan string
+	messages chan []byte
 }
 
 // Start a dbus connection to listen for command line messages.
 // Throws an error if another connection is already started.
 // Stores recieved messages in messageChannel.
-func (s *Listener) StartMessageListener(messageChannel chan string) (conn *dbus.Conn, errors DetailedErrors) {
+func (s *Listener) StartMessageListener(messageChannel chan []byte) (conn *dbus.Conn, errors DetailedErrors) {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		return conn, DetailedErrors{
@@ -81,6 +81,6 @@ func (s *Listener) StartMessageListener(messageChannel chan string) (conn *dbus.
 
 // Called internally to store a message send via CLI sender
 func (s *Listener) SendMessage(message string) (reply string, err *dbus.Error) {
-	s.messages <- message
+	s.messages <- []byte(message)
 	return "Acknoledge", nil
 }

@@ -1,10 +1,12 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	Broadcast "github.com/Noeeekr/broadcast_server/internal"
+	"github.com/Noeeekr/broadcast_server/pkg/instance"
 	"github.com/gorilla/websocket"
 )
 
@@ -17,10 +19,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	s.SimpleLog("Connection", "Client connected "+conn.RemoteAddr().String(), "")
+	// Incoming messages channel
+	var messages chan []byte = make(chan []byte, 10)
+	defer close(messages)
 
-	// Request channel
-	var requests chan []byte = make(chan []byte, 1)
+	id, err := s.Add(messages)
+	defer s.Remove(id)
+
+	s.SimpleLog("Connection", "Client connected "+conn.RemoteAddr().String(), "")
+	fmt.Println()
 	go func() {
 		for {
 			_, msg, err := conn.ReadMessage()
@@ -29,41 +36,45 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				s.SimpleLog("Connection", "Closed connection to "+conn.RemoteAddr().String(), "")
 				break
 			}
+			s.SimpleLog("Broadcast", "Message request recieved from "+conn.LocalAddr().String(), "")
 
-			requests <- msg
+			s.listener.SendMessage(string(msg))
 		}
-		close(requests)
 	}()
 
-	// Broadcast channel
-	var messages chan string = make(chan string, 10)
-	id, err := s.Add(messages)
-	defer s.Remove(id)
+	// Shutdown mechanism
+	var Shutdown instance.Shutdown
+	Proceed := Shutdown.Wait()
+	defer Proceed()
 
+	// Multi state machine handling incoming/outcoming messages and program termination messages
 outerloop:
 	for {
 		select {
+		// Close all connections on interrupt signal
+		case <-instance.InterruptContext.Done():
+			err := conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Server requested close"), time.Now().Add(time.Second*2))
+			if err != nil {
+				s.ErrorLog("Failed to close connection properly", err.Error())
+			}
+
+			break outerloop
+		// Send message to all connections
 		case message, ok := <-messages:
 			if !ok {
 				break outerloop
 			}
-			if message == Broadcast.CommandsCloseConnection {
-				err := conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Server requested close"), time.Now().Add(time.Second*2))
-				if err != nil {
-					s.ErrorLog("Failed to close connection properly", err.Error())
-				}
-				break
-			}
+			// If message contains specific command, terminate.
+			if string(message) == Broadcast.CommandsCloseConnection {
+				message = []byte("Ending connection soon")
+				conn.WriteMessage(websocket.TextMessage, message)
 
-			conn.WriteMessage(websocket.TextMessage, []byte(message))
-			s.SimpleLog("BROADCAST", "Message sent to "+conn.LocalAddr().String(), "")
-			break
-		case request, ok := <-requests:
-			if !ok {
+				Shutdown.Terminate()
 				break outerloop
 			}
-			s.SimpleLog("BROADCAST", "Message recieved from "+conn.LocalAddr().String(), "")
-			s.listener.SendMessage(string(request))
+
+			conn.WriteMessage(websocket.TextMessage, message)
+			s.SimpleLog("BROADCAST", "Message sent to "+conn.RemoteAddr().String(), "")
 			break
 		}
 	}

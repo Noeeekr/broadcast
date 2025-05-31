@@ -1,6 +1,7 @@
 package instance
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -8,73 +9,64 @@ import (
 	"syscall"
 )
 
-var once sync.Once
-var shutdownCallbacks []ShutdownFunc
+var InterruptContext context.Context
+var interrupt context.CancelFunc
+var waiter sync.WaitGroup
+var isTerminating bool
 
-// A callback to finish the task correctly
-type ShutdownFunc interface {
-	Shutdown()
+func init() {
+	InterruptContext, interrupt = signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 }
 
-// Shutdown holds methods that helps finishing program smoothlier
 type Shutdown struct{}
-
-func (s *Shutdown) onInterrupt(shutdownFunc func()) {
-	once.Do(
-		func() {
-			var signals chan os.Signal = make(chan os.Signal, 1)
-			signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-			go func() {
-				sig := <-signals
-				fmt.Println("Finishing program - Signal detected", sig.String())
-				signal.Stop(signals)
-
-				shutdownFunc()
-
-				os.Exit(0)
-			}()
-		},
-	)
-}
-
-// Enables gracefull shutdown
-func (s *Shutdown) EnableGracefull() {
-	var debug Debugger
-	debug.NotImplemented("Not implemented - mutex in callbacks for adding without shutting down program before")
-	// quando a função é executada não tem porque lockar
-	// mas quando ela é adiciona é importante lockar essa parte pra adicionar a nova
-
-	s.onInterrupt(func() {
-		for _, cb := range shutdownCallbacks {
-			cb.Shutdown()
-		}
-	})
-}
-
-func (s *Shutdown) AddCallback(shutdownCallback ShutdownFunc) {
-	shutdownCallbacks = append(shutdownCallbacks, shutdownCallback)
-}
-
-// Terminate emits SIGTERM to the current process. If EnableGracefull was called before, the process will terminate gracefully.
-func (s *Shutdown) Terminate() {
-	process, err := os.FindProcess(os.Getpid())
-	if err != nil {
-		fmt.Println("Failed to identify process from inside to shutdown gracefully")
-		fmt.Println("Program will continue running until recieving an external signal to shutdown")
-		fmt.Println(err.Error())
-		return
-	}
-
-	err = process.Signal(syscall.SIGTERM)
-	if err != nil {
-		fmt.Println("Failed to shutdown gracefully from inside the program")
-		fmt.Println("Program will continue running until recieving an external signal to shutdown")
-		fmt.Println(err.Error())
-		return
-	}
-}
 
 func NewShutdown() *Shutdown {
 	return &Shutdown{}
+}
+
+// Tells if the program is trying to terminate at the moment
+func (s *Shutdown) IsTerminating() bool {
+	return isTerminating
+}
+
+// Enables gracefull shutdown on SIGINT and SIGTERM
+func (s *Shutdown) EnableGracefull() {
+	var once sync.Once
+
+	once.Do(func() {
+		var signals chan os.Signal = make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+		go func() {
+			sig := <-signals
+			fmt.Println("Signal detected (" + sig.String() + ") Starting process shutdown.")
+			s.Terminate()
+		}()
+	})
+}
+
+// Terminate sets IsTerminating return to true when called to tell new jobs to not proceed.
+// After that, it for all Wait() to be eliminated with a Proceed() then finishes the program entirely.
+// Needs logs
+func (s *Shutdown) Terminate() {
+	var once sync.Once
+
+	once.Do(func() {
+		go func() {
+			interrupt()
+			isTerminating = true
+			waiter.Wait()
+
+			os.Exit(0)
+		}()
+	})
+}
+
+// Wait stops Terminate() from finishing the process until Proceed() is called
+func (s *Shutdown) Wait() (Proceed func()) {
+	waiter.Add(1)
+
+	return func() {
+		waiter.Done()
+	}
 }

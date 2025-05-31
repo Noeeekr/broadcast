@@ -29,7 +29,7 @@ func New() Connection {
 	return Connection{
 		Sender: Sender{},
 		Listener: Listener{
-			messages: make(chan string, 30),
+			messages: make(chan []byte, 10),
 		},
 	}
 }

@@ -6,16 +6,14 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
-	Broadcast "github.com/Noeeekr/broadcast_server/internal"
 	"github.com/Noeeekr/broadcast_server/internal/ipc"
 	"github.com/Noeeekr/broadcast_server/pkg/instance"
 	"github.com/gorilla/websocket"
 )
 
 type ChanInfo struct {
-	cha chan string
+	cha chan []byte
 	id  int
 }
 
@@ -37,7 +35,7 @@ type Server struct {
 
 	// Inter process comunication (IPC) between server and Command Line Interface (CLI)
 	listener ipc.Listener
-	messages chan string
+	messages chan []byte
 
 	// All open connections
 	port int
@@ -52,18 +50,15 @@ func New() *Server {
 			limit:    10000,
 		},
 		listener: ipc.Listener{},
-		messages: make(chan string, 10),
+		messages: make(chan []byte, 10),
 		upgrader: websocket.Upgrader{},
 	}
-
-	var instance instance.Shutdown
-	instance.AddCallback(server)
 
 	return server
 }
 
 // Adds a new channels to broadcast. Remove must be called when the connection is closed
-func (s *Server) Add(cha chan string) (id int, err error) {
+func (s *Server) Add(cha chan []byte) (id int, err error) {
 	conn := s.Connections
 
 	conn.connMutex.Lock()
@@ -103,14 +98,13 @@ func (s *Server) Remove(id int) {
 
 func (s *Server) Serve(port int) ipc.DetailedErrors {
 	conn, Error := s.listener.StartMessageListener(s.messages)
-
 	if Error.Type != ipc.ErrorNil {
 		conn.Close()
 		return Error
 	}
+	defer conn.Close()
 
 	s.SimpleLog("Server", "Starting server on port "+strconv.Itoa(port), "")
-
 	go s.Broadcast()
 
 	return ipc.DetailedErrors{
@@ -124,12 +118,7 @@ func (s *Server) Broadcast() {
 		message := <-s.messages
 
 		for _, messageChannel := range s.channels {
-			messageChannel.cha <- message
+			messageChannel.cha <- []byte(message)
 		}
 	}
-}
-
-func (s *Server) Shutdown() {
-	s.listener.SendMessage(Broadcast.CommandsCloseConnection)
-	time.Sleep(time.Second)
 }

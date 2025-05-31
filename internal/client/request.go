@@ -2,33 +2,35 @@ package client
 
 import (
 	"fmt"
+	"slices"
 
-	Broadcast "github.com/Noeeekr/broadcast_server/internal"
 	"github.com/Noeeekr/broadcast_server/pkg/instance"
 	"github.com/gorilla/websocket"
 )
 
 // Listen estabilishes a connection to broadcast server and listen to all messages
 func (c *Client) listen(url string) error {
-	var debug instance.Debugger
-	debug.NotImplemented("internal/client/request.go - Not implemented - Fmt the response message from server 'conn estabilished. welcome from server'")
+	c.MessagesRcvd = make(chan string, 10)
+	defer close(c.MessagesRcvd)
+	c.MessagesToSend = make(chan string, 10)
+	defer close(c.MessagesToSend)
+
 	Conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		return err
 	}
-
 	c.SimpleLog("Connection", "Estabilished", "")
 
-	var instance instance.Shutdown
+	var waiter instance.Shutdown
 
 	go func() {
 		for {
 			msgType, msg, err := Conn.ReadMessage()
-			debug.NotImplemented("internal/client/request.go - Not implemented - Handle error case for EOF | Conn Closed")
 
 			if err != nil {
-				fmt.Println("server requested to close connection")
-				instance.Terminate()
+				fmt.Println("Server requested to close connection")
+				Conn.Close()
+				waiter.Terminate()
 				return
 			}
 
@@ -40,22 +42,32 @@ func (c *Client) listen(url string) error {
 		}
 	}()
 
+outerloop:
 	for {
+	selectLoop:
 		select {
+		case <-instance.InterruptContext.Done():
+			fmt.Println("Signal recieved. Finishing program")
+			break outerloop
 		case msg := <-c.MessagesRcvd:
-			if msg == Broadcast.CommandsCloseConnection {
-				fmt.Println("Server request to close connection. Terminating")
-				instance.Terminate()
-				break
+			for i, message := range c.MessageHistory {
+				if message == msg {
+					c.MessageHistory = slices.Delete(c.MessageHistory, i, i)
+					break selectLoop
+				}
 			}
-			fmt.Println("Message recieved:", msg)
+
+			fmt.Printf("S:%s", msg)
 			break
 		case msg := <-c.MessagesToSend:
 			err := Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 			if err != nil {
 				fmt.Println("Failed to send message")
 			}
+			c.MessageHistory = append(c.MessageHistory, msg)
 			break
 		}
 	}
+
+	return nil
 }

@@ -15,7 +15,7 @@ func NewLogger() *Logger {
 }
 
 func (logger *Logger) TrackedLog(LogType, LogReason, Description string) {
-	_, file, line, ok := runtime.Caller(1)
+	_, file, line, ok := runtime.Caller(2)
 	if !ok {
 		file = "Unknown"
 		line = 0
