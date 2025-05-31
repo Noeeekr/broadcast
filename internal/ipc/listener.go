@@ -73,19 +73,6 @@ func (s *Listener) StartMessageListener(messageChannel chan string) (conn *dbus.
 		}
 	}
 
-	//	go func() {
-	//		var signals chan *dbus.Signal = make(chan *dbus.Signal, 10)
-	//		conn.Signal(signals)
-	//
-	//		for sig := range signals {
-	//			if sig != nil {
-	//				fmt.Println("Signal recieved:", sig)
-	//			} else {
-	//				fmt.Println("sig nil")
-	//			}
-	//		}
-	//	}()
-
 	return conn, DetailedErrors{
 		Type:        ErrorNil,
 		Description: "",

@@ -1,13 +1,8 @@
 To do:
-    Works - Try to output a message to stdout using goroutine while in a fmt.Scan()
 
     Server:
-        Log every single thing
-        Refactor the whole thing
         Turn into a service
-
     Client:
-        Enable message sending to server to broadcast
         Turn into a service
 
     Unit test:
@@ -15,5 +10,9 @@ To do:
         Test cases for "Remove" 
         Test cases for other functions
 
+    Shutdown: 
+        Refactor entirely
+    Instance/logs: 
+        Implement log option to log to specific file. Log funcs will return a string and in the end call a func that decides which stdout will string go to.
     Docker:
         Try the containerization

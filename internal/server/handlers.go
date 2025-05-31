@@ -1,9 +1,10 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
+	"time"
 
+	Broadcast "github.com/Noeeekr/broadcast_server/internal"
 	"github.com/gorilla/websocket"
 )
 
@@ -12,11 +13,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Failed to enable continuous connection."))
+		w.Write([]byte("Failed to enable websocket connection."))
 	}
 	defer conn.Close()
 
-	fmt.Println("client connected")
+	s.SimpleLog("Connection", "Client connected "+conn.RemoteAddr().String(), "")
 
 	// Request channel
 	var requests chan []byte = make(chan []byte, 1)
@@ -25,7 +26,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_, msg, err := conn.ReadMessage()
 
 			if err != nil {
-				fmt.Println("Websockets conn closed")
+				s.SimpleLog("Connection", "Closed connection to "+conn.RemoteAddr().String(), "")
 				break
 			}
 
@@ -46,15 +47,22 @@ outerloop:
 			if !ok {
 				break outerloop
 			}
+			if message == Broadcast.CommandsCloseConnection {
+				err := conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Server requested close"), time.Now().Add(time.Second*2))
+				if err != nil {
+					s.ErrorLog("Failed to close connection properly", err.Error())
+				}
+				break
+			}
+
 			conn.WriteMessage(websocket.TextMessage, []byte(message))
-			fmt.Println("message sent to clients")
+			s.SimpleLog("BROADCAST", "Message sent to "+conn.LocalAddr().String(), "")
 			break
 		case request, ok := <-requests:
 			if !ok {
 				break outerloop
 			}
-			fmt.Println("message recieved from clients")
-			conn.WriteMessage(websocket.TextMessage, []byte("ok"))
+			s.SimpleLog("BROADCAST", "Message recieved from "+conn.LocalAddr().String(), "")
 			s.listener.SendMessage(string(request))
 			break
 		}

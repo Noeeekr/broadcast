@@ -3,12 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/Noeeekr/broadcast_server/internal/instance"
 	"github.com/Noeeekr/broadcast_server/internal/ipc"
 	"github.com/Noeeekr/broadcast_server/internal/server"
-	Panic "github.com/Noeeekr/broadcast_server/pkg/panic"
 )
 
 // Starts a server if a --port flag is provided
@@ -24,12 +22,11 @@ func main() {
 	flag.Parse()
 
 	// Enable production panic for unimplemented features
-	var p Panic.Panic
-	p.EnableDebug(enableDebug)
+	var instance instance.Instance = instance.New()
+	instance.EnableDebug(enableDebug)
 
 	// Enable gracefull shutdown
-	var instance instance.Instance = instance.New()
-	instance.Shutdown.EnableGracefull()
+	instance.EnableGracefull()
 
 	var server *server.Server = server.New()
 
@@ -37,12 +34,11 @@ func main() {
 	if port != 3332 {
 		if port < 3332 {
 			fmt.Println("[ERROR] Port must be bigger than 3332")
-			os.Exit(1)
 		}
 		if Error := server.Serve(port); Error.Type != "" {
 			fmt.Println("[ERROR] Failed to start server on port", port)
 			fmt.Println("[ERROR]", Error.Description)
-			os.Exit(1)
+			instance.Terminate()
 		}
 	}
 
@@ -56,13 +52,13 @@ func main() {
 			} else {
 				fmt.Println("Message successfully sent..")
 			}
-			os.Exit(0)
+			instance.Terminate()
 		} else {
 			fmt.Println("Provide a message to send to all clients")
-			os.Exit(1)
+			instance.Terminate()
 		}
 	} else {
 		fmt.Println("Start a server first to send messages")
-		os.Exit(1)
+		instance.Terminate()
 	}
 }

@@ -4,9 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
+	"time"
 
+	Broadcast "github.com/Noeeekr/broadcast_server/internal"
 	"github.com/Noeeekr/broadcast_server/internal/ipc"
+	"github.com/Noeeekr/broadcast_server/pkg/instance"
 	"github.com/gorilla/websocket"
 )
 
@@ -25,6 +29,7 @@ type Connections struct {
 
 // Server implements a websocket connection with dbus connection to listen for ipc messages.
 type Server struct {
+	*instance.Logger
 	*Connections
 
 	// Turn HTTP connections into Websockets
@@ -39,7 +44,8 @@ type Server struct {
 }
 
 func New() *Server {
-	return &Server{
+	var server *Server = &Server{
+		Logger: instance.NewLogger(),
 		Connections: &Connections{
 			last:     0,
 			channels: make(map[int]ChanInfo),
@@ -49,6 +55,11 @@ func New() *Server {
 		messages: make(chan string, 10),
 		upgrader: websocket.Upgrader{},
 	}
+
+	var instance instance.Shutdown
+	instance.AddCallback(server)
+
+	return server
 }
 
 // Adds a new channels to broadcast. Remove must be called when the connection is closed
@@ -91,12 +102,14 @@ func (s *Server) Remove(id int) {
 }
 
 func (s *Server) Serve(port int) ipc.DetailedErrors {
-	if conn, Error := s.listener.StartMessageListener(s.messages); Error.Type != ipc.ErrorNil {
+	conn, Error := s.listener.StartMessageListener(s.messages)
+
+	if Error.Type != ipc.ErrorNil {
 		conn.Close()
 		return Error
 	}
 
-	fmt.Println("[LOG] Starting Server on port", port)
+	s.SimpleLog("Server", "Starting server on port "+strconv.Itoa(port), "")
 
 	go s.Broadcast()
 
@@ -114,4 +127,9 @@ func (s *Server) Broadcast() {
 			messageChannel.cha <- message
 		}
 	}
+}
+
+func (s *Server) Shutdown() {
+	s.listener.SendMessage(Broadcast.CommandsCloseConnection)
+	time.Sleep(time.Second)
 }
