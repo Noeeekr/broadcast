@@ -1,0 +1,14 @@
+[Unit]
+Description=Broadcast server allows messages sent from command line interface to be broadcasted to all connected clients 
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/bserver --port=3333 --debug=false
+ExecReload=/usr/local/bin/bserver --port=3333 --debug=false
+Type=simple
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
