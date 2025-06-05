@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Noeeekr/broadcast_server/internal/instance"
-	"github.com/Noeeekr/broadcast_server/internal/ipc"
+	"github.com/Noeeekr/broadcast_server/internal/messager"
 	"github.com/Noeeekr/broadcast_server/internal/server"
 )
 
@@ -43,10 +43,10 @@ func main() {
 
 	// Otherwise, it is a message, act as CLI
 	// Check if server is running
-	messager := ipc.NewMessager()
-	if success, _ := messager.PingMessageListener(); success {
+	messagerInstance := messager.NewMessager()
+	if success, _ := messagerInstance.PingMessageListener(); success {
 		if message := instance.ArgsToString(); message != "" {
-			if Error := messager.Sender.Send(message); Error.Type != ipc.ErrorNil {
+			if Error := messagerInstance.Sender.Send(message); Error.Type != messager.ErrorNil {
 				fmt.Println("Failed to send message to server - ", Error.Description)
 			} else {
 				fmt.Println("Message successfully sent..")
