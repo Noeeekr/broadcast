@@ -18,3 +18,8 @@ docker-build:
 	docker build -t broadcast .
 docker-run: 
 	docker run --rm -it broadcast:latest
+
+run-server:
+	go run ./cmd/bserver/main.go --port=3333 --debug=false
+run-client:
+	go run ./cmd/bsclient/main.go --port=3333 --debug=false

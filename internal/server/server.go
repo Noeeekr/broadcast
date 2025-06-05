@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/Noeeekr/broadcast_server/internal/ipc"
+	ipc "github.com/Noeeekr/broadcast_server/internal/messager"
 	"github.com/Noeeekr/broadcast_server/pkg/instance"
 	"github.com/gorilla/websocket"
 )

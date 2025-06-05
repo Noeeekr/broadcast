@@ -1,4 +1,4 @@
-package ipc
+package messager
 
 import (
 	"github.com/godbus/dbus/v5"

@@ -1,4 +1,4 @@
-package ipc
+package messager
 
 import "github.com/godbus/dbus/v5"
 
@@ -18,15 +18,15 @@ const (
 	ErrorNil               ConnectionErrors = ""
 )
 
-// Connection can start a Inter Process Communication (IPC)
+// IpcMessager can start a Inter Process Communication (IPC)
 // It can either be used to start a broadcast server or send messages to one.
-type Connection struct {
+type IpcMessager struct {
 	Sender   Sender
 	Listener Listener
 }
 
-func New() Connection {
-	return Connection{
+func NewMessager() IpcMessager {
+	return IpcMessager{
 		Sender: Sender{},
 		Listener: Listener{
 			messages: make(chan []byte, 10),
@@ -34,21 +34,21 @@ func New() Connection {
 	}
 }
 
-func (cli *Connection) IsServerListening() bool {
+func (messager *IpcMessager) PingMessageListener() (Success bool, err error) {
 	Conn, err := dbus.ConnectSessionBus()
 	if err != nil {
-		return true
+		return false, err
 	}
 	defer Conn.Close()
 
 	reply, err := Conn.RequestName(name, dbus.NameFlagDoNotQueue)
 	if err != nil {
-		return true
+		return false, err
 	}
 
 	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return true
+		return true, err
 	} else {
-		return false
+		return false, err
 	}
 }

@@ -1,4 +1,4 @@
-package ipc
+package messager
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ type Listener struct {
 	messages chan []byte
 }
 
-// Start a dbus connection to listen for command line messages.
+// StartMessageListener starts an asyncronous ipc dbus connection to listen for command line messages.
 // Throws an error if another connection is already started.
 // Stores recieved messages in messageChannel.
 func (s *Listener) StartMessageListener(messageChannel chan []byte) (conn *dbus.Conn, errors DetailedErrors) {

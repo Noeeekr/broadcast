@@ -9,6 +9,7 @@ import (
 	"syscall"
 )
 
+var once sync.Once
 var InterruptContext context.Context
 var interrupt context.CancelFunc
 var waiter sync.WaitGroup
@@ -49,14 +50,13 @@ func (s *Shutdown) EnableGracefull() {
 // After that, it for all Wait() to be eliminated with a Proceed() then finishes the program entirely.
 // Needs logs
 func (s *Shutdown) Terminate() {
-	var once sync.Once
-
 	once.Do(func() {
 		go func() {
 			interrupt()
 			isTerminating = true
 			waiter.Wait()
 
+			fmt.Println("All jobs finished. Shutting down.")
 			os.Exit(0)
 		}()
 	})
